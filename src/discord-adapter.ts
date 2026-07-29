@@ -1031,15 +1031,19 @@ export class DiscordAdapter {
   }
 
   /** Resolve display metadata for a channel by ID — used by the reconnect
-   *  catch-up sweep to label `<missed>` blocks. Returns nulls for an
-   *  unresolvable channel rather than throwing. */
+   *  catch-up sweep to label `<missed>` blocks. A fetch that resolves to
+   *  nothing returns null (so "not found" is distinguishable from a real
+   *  DM's legitimately guild-less metadata — a truthy all-null object made
+   *  the two identical and the sweep's failure trace never fired for it);
+   *  fetch ERRORS still throw for the caller to log. */
   async getChannelMeta(channelId: string): Promise<{
     name: string | null;
     guildId: string | null;
     guildName: string | null;
     isDM: boolean;
-  }> {
+  } | null> {
     const channel = await this.client.channels.fetch(channelId);
+    if (!channel) return null;
     return this.extractChannelMeta(channel);
   }
 
@@ -1063,7 +1067,6 @@ export class DiscordAdapter {
     guildName: string | null;
     isDM: boolean;
   } {
-    if (!channel) return { name: null, guildId: null, guildName: null, isDM: true };
     const c = channel as {
       name?: string;
       guildId?: string | null;

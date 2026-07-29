@@ -1789,13 +1789,19 @@ export class DiscordMcplServer {
       const hadMention = isDM || mentionCount > 0;
 
       // Cache-first, REST only as fallback; a failed lookup leaves a trace
-      // instead of silently shipping a name-less block (issue #28).
+      // instead of silently shipping a name-less block (issue #28) — for
+      // BOTH failure shapes: a thrown fetch and a fetch that resolves to
+      // nothing (deleted channel), which used to come back as a truthy
+      // all-null object and skip the trace.
       let meta = this.discord.getCachedChannelMeta(channelId);
       if (!meta) {
-        meta = await this.discord.getChannelMeta(channelId).catch((err) => {
+        try {
+          meta = await this.discord.getChannelMeta(channelId);
+          if (!meta) dbg('sweep:channel-meta-failed', { channelId, reason: 'not-found' });
+        } catch (err) {
           dbg('sweep:channel-meta-failed', { channelId, error: (err as Error).message });
-          return null;
-        });
+          meta = null;
+        }
       }
       const attrs: string[] = [];
       if (meta?.name) attrs.push(`channel="#${meta.name}"`);
